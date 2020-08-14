@@ -21,7 +21,9 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
+import org.apache.commons.lang3.StringUtils;
 import org.flowable.common.engine.api.FlowableException;
 import org.flowable.common.engine.api.delegate.event.FlowableEngineEventType;
 import org.flowable.common.engine.impl.context.Context;
@@ -36,9 +38,12 @@ import org.flowable.variable.api.types.VariableType;
 import org.flowable.variable.api.types.VariableTypes;
 import org.flowable.variable.service.VariableServiceConfiguration;
 import org.flowable.variable.service.event.impl.FlowableVariableEventBuilder;
+import org.flowable.variable.service.impl.aggregation.VariableAggregation;
 import org.flowable.variable.service.impl.util.CommandContextUtil;
 import org.flowable.variable.service.impl.util.VariableLoggingSessionUtil;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 /**
@@ -909,6 +914,8 @@ public abstract class VariableScopeImpl extends AbstractEntity implements Serial
             variableInstances.put(variableName, variableInstance);
         }
 
+        handleVariableAggregations(variableInstance);
+
         if (isPropagateToHistoricVariable()) {
             if (variableServiceConfiguration.getInternalHistoryVariableManager() != null) {
                 variableServiceConfiguration.getInternalHistoryVariableManager()
@@ -931,6 +938,55 @@ public abstract class VariableScopeImpl extends AbstractEntity implements Serial
         return variableInstance;
     }
 
+    public abstract List<VariableAggregation> getVariableAggregations();
+
+    protected void handleVariableAggregations(VariableInstance variableInstance) {
+
+        List<VariableAggregation> variableAggregations = getVariableAggregations();
+        if (variableAggregations == null) {
+            return;
+        }
+
+        List<VariableAggregation> matchingVariableAggregations = variableAggregations
+            .stream()
+            .filter(variableAggregation -> variableInstance.getName().equals(variableAggregation.getSource()))
+            .collect(Collectors.toList());
+
+        for (VariableAggregation variableAggregation : matchingVariableAggregations) {
+
+            String targetArrayNodeVariableName = variableAggregation.getTargetArrayVariable();
+            if (StringUtils.isNotEmpty(targetArrayNodeVariableName)) {
+
+                Object targetVariable = getVariable(targetArrayNodeVariableName);
+
+                ArrayNode targetArrayNode = (ArrayNode) targetVariable;
+                if (targetVariable == null) {
+                    ObjectMapper objectMapper = CommandContextUtil.getVariableServiceConfiguration().getObjectMapper();
+                    targetArrayNode = objectMapper.createArrayNode();
+                    setVariable(targetArrayNodeVariableName, targetArrayNode);
+                }
+
+                if (StringUtils.isNotEmpty(variableAggregation.getTarget())) {
+
+                    // TODO: need to know which element we're currently at ...
+                    // TODO: alternatively: only do it on complete?
+                    // TODO: would need to have the special variable type?
+
+                    Object value = variableInstance.getValue();
+                    if (value != null) {
+                        // TODO: other types need to be serialized too
+                        targetArrayNode.add(value.toString());
+                    } else {
+                        // Adding null?
+                        targetArrayNode.addNull();
+                    }
+                }
+
+            }
+
+        }
+    }
+
     /*
      * Transient variables
      */
@@ -947,7 +1003,10 @@ public abstract class VariableScopeImpl extends AbstractEntity implements Serial
         if (transientVariables == null) {
             transientVariables = new HashMap<>();
         }
-        transientVariables.put(variableName, new TransientVariableInstance(variableName, variableValue));
+        TransientVariableInstance transientVariableInstance = new TransientVariableInstance(variableName, variableValue);
+        transientVariables.put(variableName, transientVariableInstance);
+
+        handleVariableAggregations(transientVariableInstance);
     }
 
     @Override

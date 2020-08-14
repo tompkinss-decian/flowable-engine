@@ -38,6 +38,7 @@ import org.flowable.task.service.TaskServiceConfiguration;
 import org.flowable.task.service.impl.persistence.CountingTaskEntity;
 import org.flowable.task.service.impl.util.CommandContextUtil;
 import org.flowable.task.service.impl.util.CountingTaskUtil;
+import org.flowable.variable.service.impl.aggregation.VariableAggregation;
 import org.flowable.variable.service.impl.persistence.entity.VariableInitializingList;
 import org.flowable.variable.service.impl.persistence.entity.VariableInstanceEntity;
 import org.flowable.variable.service.impl.persistence.entity.VariableScopeImpl;
@@ -214,7 +215,16 @@ public class TaskEntityImpl extends AbstractTaskServiceVariableScopeEntity imple
             variableInstance.setProcessDefinitionId(this.processDefinitionId);
         }
     }
-    
+
+    @Override
+    public List<VariableAggregation> getVariableAggregations() {
+        VariableScopeImpl parentVariableScope = getParentVariableScope();
+        if (parentVariableScope != null) {
+            return parentVariableScope.getVariableAggregations();
+        }
+        return null;
+    }
+
     @Override
     protected void addLoggingSessionInfo(ObjectNode loggingNode) {
         // TODO

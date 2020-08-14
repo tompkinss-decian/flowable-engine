@@ -19,12 +19,17 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
+import org.apache.commons.lang3.StringUtils;
 import org.flowable.bpmn.model.FlowElement;
+import org.flowable.bpmn.model.FlowNode;
 import org.flowable.bpmn.model.FlowableListener;
 import org.flowable.common.engine.api.FlowableException;
+import org.flowable.common.engine.api.delegate.Expression;
 import org.flowable.common.engine.impl.context.Context;
 import org.flowable.common.engine.impl.db.SuspensionState;
+import org.flowable.common.engine.impl.el.ExpressionManager;
 import org.flowable.common.engine.impl.history.HistoryLevel;
 import org.flowable.common.engine.impl.interceptor.CommandContext;
 import org.flowable.common.engine.impl.runtime.Clock;
@@ -41,6 +46,7 @@ import org.flowable.identitylink.service.impl.persistence.entity.IdentityLinkEnt
 import org.flowable.job.service.impl.persistence.entity.JobEntity;
 import org.flowable.job.service.impl.persistence.entity.TimerJobEntity;
 import org.flowable.task.service.impl.persistence.entity.TaskEntity;
+import org.flowable.variable.service.impl.aggregation.VariableAggregation;
 import org.flowable.variable.service.impl.persistence.entity.VariableInitializingList;
 import org.flowable.variable.service.impl.persistence.entity.VariableInstanceEntity;
 import org.flowable.variable.service.impl.persistence.entity.VariableScopeImpl;
@@ -597,7 +603,6 @@ public class ExecutionEntityImpl extends AbstractBpmnEngineVariableScopeEntity i
 
     // VariableScopeImpl methods //////////////////////////////////////////////////////////////////
 
-    // TODO: this should ideally move to another place
     @Override
     protected void initializeVariableInstanceBackPointer(VariableInstanceEntity variableInstance) {
         if (processInstanceId != null) {
@@ -607,6 +612,66 @@ public class ExecutionEntityImpl extends AbstractBpmnEngineVariableScopeEntity i
         }
         variableInstance.setExecutionId(id);
         variableInstance.setProcessDefinitionId(processDefinitionId);
+    }
+
+    @Override
+    public List<VariableAggregation> getVariableAggregations() {
+        FlowElement currentFlowElement = getCurrentFlowElement();
+        if (currentFlowElement instanceof FlowNode) {
+            FlowNode flowNode = (FlowNode) currentFlowElement;
+            if (flowNode.getVariableAggregationDefinitions() != null)  {
+                return flowNode.getVariableAggregationDefinitions().stream()
+                    .map(variableAggregationDefinition -> {
+
+                        String targetArrayVariable = null;
+                        if (StringUtils.isNotEmpty(variableAggregationDefinition.getTargetArrayVariableExpression())) {
+                            ExpressionManager expressionManager = CommandContextUtil.getProcessEngineConfiguration().getExpressionManager();
+                            Expression expression = expressionManager.createExpression(variableAggregationDefinition.getTargetArrayVariableExpression());
+                            Object value = expression.getValue(this);
+                            if (value != null) {
+                                targetArrayVariable = value.toString();
+                            }
+
+                        } else if (StringUtils.isNotEmpty(variableAggregationDefinition.getTargetArrayVariable())) {
+                            targetArrayVariable = variableAggregationDefinition.getTargetArrayVariable();
+
+                        }
+
+                        String source = null;
+                        if (StringUtils.isNotEmpty(variableAggregationDefinition.getSourceExpression())) {
+                            ExpressionManager expressionManager = CommandContextUtil.getProcessEngineConfiguration().getExpressionManager();
+                            Expression expression = expressionManager.createExpression(variableAggregationDefinition.getSourceExpression());
+                            Object value = expression.getValue(this);
+                            if (value != null) {
+                                source = value.toString();
+                            }
+
+                        } else if (StringUtils.isNotEmpty(variableAggregationDefinition.getSource())) {
+                            source = variableAggregationDefinition.getSource();
+
+                        }
+
+                        String target = null;
+                        if (StringUtils.isNotEmpty(variableAggregationDefinition.getTargetExpression())) {
+                            ExpressionManager expressionManager = CommandContextUtil.getProcessEngineConfiguration().getExpressionManager();
+                            Expression expression = expressionManager.createExpression(variableAggregationDefinition.getTargetExpression());
+                            Object value = expression.getValue(this);
+                            if (value != null) {
+                                target = value.toString();
+                            }
+
+                        } else if (StringUtils.isNotEmpty(variableAggregationDefinition.getTarget())) {
+                            target = variableAggregationDefinition.getTarget();
+
+                        }
+
+                        return new VariableAggregation(targetArrayVariable, source, target);
+
+                    })
+                    .collect(Collectors.toList());
+            }
+        }
+        return  null;
     }
 
     @Override
