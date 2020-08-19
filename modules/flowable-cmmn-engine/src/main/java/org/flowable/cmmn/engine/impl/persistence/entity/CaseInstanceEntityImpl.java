@@ -19,6 +19,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.commons.lang3.tuple.Pair;
 import org.flowable.cmmn.engine.CmmnEngineConfiguration;
 import org.flowable.cmmn.engine.impl.repository.CaseDefinitionUtil;
 import org.flowable.cmmn.engine.impl.util.CmmnLoggingSessionUtil;
@@ -284,7 +285,7 @@ public class CaseInstanceEntityImpl extends AbstractCmmnEngineVariableScopeEntit
     }
 
     @Override
-    public String getVariableAggregationScopeId() {
+    public Pair<String, String> getVariableAggregationScopeInfo() {
         return null;
     }
 
