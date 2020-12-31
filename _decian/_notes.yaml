@@ -1,0 +1,2 @@
+Dev Environment Setup:
+  - .: Install dependencies via `mvn clean install -DskipTests`
