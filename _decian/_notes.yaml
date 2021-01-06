@@ -1,2 +1,12 @@
 Dev Environment Setup:
+  tutorial:
+    url: https://robferguson.org/blog/2019/01/05/how-to-build-flowable/
+    notes: 
+      - adjusted brew commands in tutorial to use chocolatey (install this in windows if needed via https://chocolatey.org/)
+    steps:
+      - choco install ant
+      - choco install maven
+      - choco install asciidoctor
+      
+  scratch:
   - .: Install dependencies via `mvn clean install -DskipTests`
